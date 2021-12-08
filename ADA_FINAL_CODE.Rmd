@@ -5,7 +5,9 @@ date: "11/28/2021"
 output: html_document
 ---
 
-# Open libraries
+Dr. Johnson and Dylan: after data cleaning, please skip down to model 1 and model 2 to see the analyses relevant to my objectives.
+
+## Open libraries
 ```{r}
 library(tidyverse)
 library(haven)
@@ -13,10 +15,18 @@ library(tableone)
 library(odds.n.ends)
 library(car)
 library(blorr)
+library(readr)
+library(Hmisc)
+library(table1)
+library(DiagrammeR) # for figure 1
+library(stargazer)
+library(gtsummary)# to create regression table
+library(finalfit) # for tbl regression formatting
+
 ```
 
 
-# Bring in the data from 2020 BRFSS data and select variables
+## Bring in the data from 2020 BRFSS data and select variables
 ```{r}
 # open file
 brfss20 <- read_xpt(file = "C:/Users/audre/OneDrive/Documents/FALL-2021/advanced_data_analysis/ADA_project/LLCP2020XPT/LLCP2020.XPT")
@@ -26,7 +36,7 @@ brfss20 <- read_xpt(file = "C:/Users/audre/OneDrive/Documents/FALL-2021/advanced
 
 * https://www.cdc.gov/brfss/annual_data/2020/pdf/codebook20_llcp-v2-508.pdf
 
-# Check variable classes and clean data
+## Check variable classes and missing data
 ```{r}
 # check classes
 class(brfss20$SEXVAR)
@@ -38,98 +48,44 @@ class(brfss20$MENTHLTH)
 class(brfss20$CIMEMLOS)
 class(brfss20$"_AGE_G")
 
-# variables need to be factor variables (except for MENTHLTH)
+# check values of each variable
+table(brfss20$SEXVAR)
+table(brfss20$"_IMPRACE")
+table(brfss20$MARITAL)
+table(brfss20$HLTHPLN1)
+table(brfss20$PERSDOC2)
+table(brfss20$MENTHLTH)
+table(brfss20$CIMEMLOS)
+table(brfss20$"_AGE_G")
 
-# clean variables of interest and add labels
-brfss20_SCD <- brfss20 %>%
+# make smaller brfss data set
+brfss20.small <- brfss20 %>%
   select(SEXVAR, "_IMPRACE", MARITAL, HLTHPLN1, PERSDOC2, MENTHLTH, CIMEMLOS, "_AGE_G") %>%
-  mutate(SEXVAR = recode_factor(.x = SEXVAR,
-                            '1' = 'Male',
-                            '2' = 'Female')) %>%
-  rename(race = "_IMPRACE") %>%
-  mutate(race = recode_factor(.x = race,
-                              '1' = 'White, Non-Hispanic',
-                              '2' = 'Black, Non-Hispanic',
-                              '3' = 'Asian, Non-Hispanic',
-                              '4' = 'American Indian/Alaska Native, Non-Hispanic',
-                              '5' = 'Hispanic',
-                              '6' = 'Other race, Non-Hispanic')) %>%
-  mutate(MARITAL = na_if(x = MARITAL, y = 9)) %>%
-  mutate(MARITAL = recode_factor(.x = MARITAL,
-                             '1' = 'Married',
-                             '2' = 'Divorce',
-                             '3' = 'Widowed',
-                             '4' = 'Separated',
-                             '5' = 'Never married',
-                             '6' = 'A member of an unmarried couple')) %>%
-  mutate(HLTHPLN1 = na_if(x = HLTHPLN1, y = 7)) %>%
-  mutate(HLTHPLN1 = na_if(x = HLTHPLN1, y = 9)) %>%
-  mutate(HLTHPLN1 = recode_factor(.x = HLTHPLN1,
-                              '1' = 'Yes',
-                              '2' = 'No')) %>%
-  mutate(PERSDOC2 = na_if(x = PERSDOC2, y = 7)) %>%
-  mutate(PERSDOC2 = na_if(x = PERSDOC2, y = 9)) %>%
-  mutate(PERSDOC2 = recode_factor(.x = PERSDOC2,
-                              '1' = 'Yes, only one',
-                              '2' = 'More than one',
-                              '3' = 'No')) %>%
-  mutate(MENTHLTH = na_if(x = MENTHLTH, y = 77)) %>%
-  mutate(MENTHLTH = na_if(x = MENTHLTH, y = 99)) %>%
-  mutate(CIMEMLOS = na_if(x = CIMEMLOS, y = 7)) %>%
-  mutate(CIMEMLOS = na_if(x = CIMEMLOS, y = 9)) %>%
-  mutate(CIMEMLOS = recode_factor(.x = CIMEMLOS,
-                              '1' = 'Yes',
-                              '2' = 'No')) %>%
-  rename(age = "_AGE_G") %>%
-  mutate(age = recode_factor(.x = age,
-                              '1' = '18 to 44',
-                              '2' = '18 to 44',
-                              '3' = '18 to 44',
-                              '4' = '45 to 54',
-                              '5' = '55 to 64',
-                              '6' = '65 or older'))
+  mutate(SEXVAR = as.factor(SEXVAR)) %>%
+  mutate("_IMPRACE" = as.factor("_IMPRACE")) %>%
+  mutate(MARITAL = as.factor(MARITAL)) %>%
+  mutate(HLTHPLN1 = as.factor(HLTHPLN1)) %>%
+  mutate(PERSDOC2 = as.factor(PERSDOC2)) %>%
+  mutate(CIMEMLOS = as.factor(CIMEMLOS)) %>%
+  mutate("_AGE_G" = as.factor("_AGE_G"))
 
-table(brfss20_SCD$age)
+# save new data set to computer using below code if necessary
+#write.csv(brfss20.small, "C:/Users/audre/OneDrive/Documents/FALL-2021/advanced_data_analysis/ADA_project/brfss20small.csv")
+
+# check summary of smaller data set
+summary(brfss20.small)
+
+# drop values that represent "Don't know/Not sure" or "Refused" (refer to codebook)
+# MARITAL, HLTHPLN1, PERSDOC2, MENTHLTH, CIMEMLOS have missing data
+# code age groups below 44 as NA and then drop
+# need to change variables to factor (except for MENTHLTH)
+# need to shift values one level down (i.e., 1 becomes 0, 2 becomes 1, etc.)
+# categorize MENTHLTH
 ```
 
-# Make a subset of the data based on age since only those 45 and over are eligible for SCD screening question
+## Clean data
 ```{r}
-# make a subset of data set
-dataSCD20 <- brfss20_SCD[ which(brfss20_SCD$age=='45 to 54' | brfss20_SCD$age=='55 to 64' | brfss20_SCD$age=='65 or older'), ]
-
-#or you can use the below code
-#dataSCD20_2 <- subset(brfss20_SCD, age == '45 to 54' | age == '55 to 64' | age == '65 or older',
-                    #select = c(SEXVAR, race, MARITAL, HLTHPLN1, PERSDOC2, MENTHLTH, CIMEMLOS, age))
-
-table(dataSCD20$age)
-```
-
-# Now change MENTHLTH into a categorical variable
-```{r}
-# check mental health values to see how to divide into a categorical variable
-table(dataSCD20$MENTHLTH)
-
-# now, change MENTHLTH into a categorical variable
-dataSCD20$mentcat = cut(dataSCD20$MENTHLTH, c(0, 13, 30, 88))
-
-# check to make sure responses as 88 add up to original
-table(dataSCD20$mentcat)
-
-
-# clean mentcat and age variables
-dataSCD20 <- dataSCD20 %>%
-  mutate(mentcat2 = case_when(mentcat %in% c('(30,88]') ~ 0,
-                             mentcat %in% c('(0,13]') ~ 1,
-                             mentcat %in% c('(13,30]') ~ 2),
-         mentcat2 = factor(mentcat2, 0:2, c('None', '1 to 13 days', '14+ days'))) %>%
-  mutate(age = na_if(x = age, y = '18 to 44'))
-
-
-```
-
-
-```{r}
-# test
+# clean data
 # for later: table(original var, new var, useNA=“always”)
 scd20 <- brfss20 %>%
   select(SEXVAR, "_IMPRACE", MARITAL, HLTHPLN1, PERSDOC2, MENTHLTH, CIMEMLOS, "_AGE_G") %>%
@@ -164,7 +120,7 @@ scd20 <- brfss20 %>%
   mutate(MENTHLTH = na_if(x = MENTHLTH, y = 99)) %>%
   mutate(CIMEMLOS = na_if(x = CIMEMLOS, y = 7)) %>%
   mutate(CIMEMLOS = na_if(x = CIMEMLOS, y = 9)) %>%
-  mutate(CIMEMLOS = case_when(CIMEMLOS %in% c(2) ~ 0, # make no the reference group for outcome
+  mutate(CIMEMLOS = case_when(CIMEMLOS %in% c(2) ~ 0, # make 'no' the reference group for outcome
                               CIMEMLOS %in% c(1) ~ 1),
          CIMEMLOS = factor(CIMEMLOS, 0:1, c("No", "Yes"))) %>%
   rename(age = "_AGE_G") %>%
@@ -177,12 +133,18 @@ scd20 <- brfss20 %>%
          age = factor(age, 0:2, c("45 to 54", "55 to 64", "65 or older"))) %>%
   na.omit()
 
+# code to export smaller dataset
+#write.csv(scd20,"C:/Users/audre/OneDrive/Documents/FALL-2021/advanced_data_analysis/ADA_project/scd20.csv", row.names = FALSE)
+
 # check new data
 summary(scd20)
-table(scd20$age)
+
+# check variables for correct categorization (run code without na.omit)
+#table(brfss20$"_AGE_G", scd20$age)
+#table(brfss20$CIMEMLOS, scd20$CIMEMLOS)
 ```
 
-# Now change MENTHLTH into a categorical variable
+## Now change MENTHLTH into a categorical variable
 ```{r}
 # check mental health values to see how to divide into a categorical variable
 table(scd20$MENTHLTH)
@@ -200,19 +162,51 @@ scd20 <- scd20 %>%
                              mentcat %in% c('(0,13]') ~ 1,
                              mentcat %in% c('(13,30]') ~ 2),
          mentcat2 = factor(mentcat2, 0:2, c('None', '1 to 13 days', '14+ days')))
-
-
 ```
 
-# Descriptives
+## Descriptives
 ```{r}
 # make a descriptive table of overall frequencies and percentages
 desc.table <- CreateTableOne(data = scd20)
 print(desc.table,
       showAllLevels = TRUE)
+
+# change labels for table 1
+label(scd20$age)<-"Age group"
+label(scd20$SEXVAR)<-"Sex"
+label(scd20$race)<-"Race"
+label(scd20$MARITAL)<-"Marital status"
+label(scd20$HLTHPLN1)<-"Health insurance status"
+label(scd20$PERSDOC2)<-"Personal doctor status"
+label(scd20$CIMEMLOS)<-"SCD status"
+label(scd20$mentcat2) <- "Mental health status"
+
+# make a table 1
+table1(~age + SEXVAR + race + MARITAL + HLTHPLN1 + PERSDOC2 + CIMEMLOS|mentcat2, overall="Total", footnote='SD = standard deviation', scd20)
 ```
 
-# Logistic models and analyses
+## Flow chart
+```{r}
+grViz("digraph flowchart {
+
+      # node definitions with substituted label text
+      node [fontname = Helvetica, shape = rectangle, fontsize=10] 
+      #notes indicate how many boxes you will have in your diagram. Since I have two sets of exclusions, I will have three nodes.
+      tab1 [label = '@@1']
+      tab2 [label = '@@2']
+      
+      # edge definitions with the node IDs are used to indicate how the rectangle boxes flow from each other. This is a simple flow chart but I could create branching instead as below
+      tab1 -> tab2
+}
+      #This set of code provides the text in each rectangle box.
+      [1]: 'Records received from BRFSS data set n = 401,958'
+      [2]: 'Excluding 336,829 individuals diagnosed not 45 or older, \\n or with missing data on variables used in analysis n = 65,129'
+      ")
+```
+
+## Logistic models and analyses
+
+### BASIC MODEL (ONE OUTCOME, ONE PREDICTOR)
 ```{r}
 # check levels of CIMEMLOS
 levels(scd20$CIMEMLOS)
@@ -228,21 +222,21 @@ ORment
 odds.n.ends(mentLogit)
 ```
 
-# Test for assumptions of binary logistic regression
+### Test for assumptions of binary logistic regression
 
-## Linearity
+#### Linearity
 
 It is not necessary to test for linearity since all variables in the analysis are categorical.
 
-## Influences
+#### Influences
 
-xxx
 
-## Multicollinearity
+
+#### Multicollinearity
 
 It is not necessary to test for multicollinearity since there are only two variables in the model.
 
-## Model fit
+#### Model fit of basic model
 ```{r}
 #Various pseudo R squares, log likelihood, deviance, AIC, BIC
 blr_model_fit_stats(mentLogit)
@@ -251,8 +245,9 @@ blr_model_fit_stats(mentLogit)
 blr_test_hosmer_lemeshow(mentLogit)
 ```
 
+### Model 1
 
-# Multivariate model with CIMEMLOS as the dependent variable and mental health status, sex, race, health plan status, personal doctor status, marital status, and age as independent variables
+### Multivariate model with CIMEMLOS as the dependent variable and mental health status, sex, race, health plan status, personal doctor status, marital status, and age as independent variables
 ```{r}
 # logistic model
 mentplusLogit <- glm(CIMEMLOS ~ mentcat2 + SEXVAR + race + HLTHPLN1 + PERSDOC2 + MARITAL + age, data = scd20, family = "binomial")
@@ -263,23 +258,194 @@ ORmentplus<-exp(cbind(OR = coef(mentplusLogit), confint(mentplusLogit))) #calcul
 ORmentplus #print ORs and 95% CIs
 
 odds.n.ends(mentplusLogit)
+
+# make a formatted table for odds ratios
+tbl_regression(mentplusLogit, exponentiate = TRUE, include = mentcat2, label = list(mentcat2 ~ "Mental health status"))
 ```
 
-# Balance the 1's and 0's of the outcome
+### Test for assumptions
+
+#### Linearity
+
+Linearity is not applicable since there are no continuous variables in my analysis.
+
+#### Influence
+```{r}
+#Cook's D plot
+plot(mentplusLogit, which=4, id.n=5, col="red") 
+
+#Cook's D cutoff=0.0015 Or you can define use the rules described in the lecture
+cutoff <- 0.0015 
+
+#identify observations with a Cook's Distance greater than cutoff
+obs_no <- as.data.frame(cooks.distance(mentplusLogit)) %>%
+  mutate(obs_no=row_number()) %>%
+  filter(`cooks.distance(mentplusLogit)` > cutoff)
+```
+
+
+#### Multicollinearity
+```{r}
+vif(mentplusLogit)
+```
+
+#### Model fit for model 1
+```{r}
+#Various pseudo R squares, log likelihood, deviance, AIC, BIC
+blr_model_fit_stats(mentplusLogit)
+
+#Hosmer lemeshow goodness of fit test: a significant p value indicates a bad fit
+blr_test_hosmer_lemeshow(mentplusLogit)
+```
+
+### Model 2
+
+### Multivariate model with CIMEMLOS as the dependent variable and mental health status, sex, race, health plan status, personal doctor status, marital status, and age PLUS interaction terms for sex and age as independent variables
+```{r}
+# logistic model
+mentEMLogit <- glm(CIMEMLOS ~ mentcat2 + race + HLTHPLN1 + PERSDOC2 + MARITAL + mentcat2*age + mentcat2*SEXVAR, data = scd20, family = "binomial")
+summary(mentEMLogit)
+
+#calculate and print ORs and 95% CIs  
+ORmentEM<-exp(cbind(OR = coef(mentEMLogit), confint(mentEMLogit))) #calculate ORs and 95% CIs
+ORmentEM #print ORs and 95% CIs
+
+odds.n.ends(mentEMLogit)
+
+# make a formatted table for odds ratios
+tbl_regression(mentEMLogit, exponentiate = TRUE, label = list(mentcat2 ~ "Mental health status"))
+```
+
+### Test for assumptions
+
+#### Linearity
+
+Linearity is not applicable since there are no continuous variables in my analysis.
+
+#### Influence
+```{r}
+#Cook's D plot
+plot(mentEMLogit, which=4, id.n=5, col="red") 
+
+#Cook's D cutoff=0.0015 Or you can define use the rules described in the lecture
+cutoff <- 0.0015 
+
+#identify observations with a Cook's Distance greater than cutoff
+obs_no_2 <- as.data.frame(cooks.distance(mentEMLogit)) %>%
+  mutate(obs_no_2=row_number()) %>%
+  filter(`cooks.distance(mentEMLogit)` > cutoff)
+```
+
+
+#### Multicollinearity
+```{r}
+vif(mentEMLogit)
+```
+
+#### Model fit for model 2
+```{r}
+#Various pseudo R squares, log likelihood, deviance, AIC, BIC
+blr_model_fit_stats(mentEMLogit)
+
+#Hosmer lemeshow goodness of fit test: a significant p value indicates a bad fit
+blr_test_hosmer_lemeshow(mentEMLogit)
+```
+
+### Model 3 (not in abstract or presentation)
+
+#### Balance the 1's and 0's of the outcome
 ```{r}
 # create new dataset where CIMEMLOS = 0
-set.seed(1)
-scd20_zero <- sample_n(scd20[which(scd20$CIMEMLOS == 'No'),], size = 5454,)
-scd20_one <- scd20[which(scd20$CIMEMLOS == 'Yes'),]
-scd20_balance <- rbind(scd20_zero, scd20_one)
-table(scd20_balance$CIMEMLOS)
+#set.seed(1)
+#scd20_zero <- sample_n(scd20[which(scd20$CIMEMLOS == 'No'),], size = 5454,)
+#scd20_one <- scd20[which(scd20$CIMEMLOS == 'Yes'),]
+#scd20_balance <- rbind(scd20_zero, scd20_one)
+#table(scd20_balance$CIMEMLOS)
 ```
 
 ```{r}
 # run model on new dataset
-balanceLogit <- glm(CIMEMLOS ~ mentcat2 + SEXVAR + race + HLTHPLN1 + PERSDOC2 + MARITAL + age, data = scd20, family = "binomial")
-summary(balanceLogit)
+#balanceLogit <- glm(CIMEMLOS ~ mentcat2 + SEXVAR + race + HLTHPLN1 + PERSDOC2 + MARITAL + age, data = scd20, family = "binomial")
+#summary(balanceLogit)
 
-odds.n.ends(balanceLogit, predProbPlot=TRUE)
+#odds.n.ends(balanceLogit, predProbPlot=TRUE)
+```
+
+```{r}
+# ALTERNATIVE CLEAN UP CODING
+# clean variables of interest and add labels
+# brfss20_SCD <- brfss20 %>%
+  # select(SEXVAR, "_IMPRACE", MARITAL, HLTHPLN1, PERSDOC2, MENTHLTH, CIMEMLOS, "_AGE_G") %>%
+  # mutate(SEXVAR = recode_factor(.x = SEXVAR,
+                            # '1' = 'Male',
+                            # '2' = 'Female')) %>%
+ # rename(race = "_IMPRACE") %>%
+ # mutate(race = recode_factor(.x = race,
+                              #'1' = 'White, Non-Hispanic',
+                              #'2' = 'Black, Non-Hispanic',
+                              #'3' = 'Asian, Non-Hispanic',
+                              #'4' = 'American Indian/Alaska Native, Non-Hispanic',
+                              #'5' = 'Hispanic',
+                              #'6' = 'Other race, Non-Hispanic')) %>%
+  #mutate(MARITAL = na_if(x = MARITAL, y = 9)) %>%
+  #mutate(MARITAL = recode_factor(.x = MARITAL,
+                             #'1' = 'Married',
+                             #'2' = 'Divorce',
+                             #'3' = 'Widowed',
+                             #'4' = 'Separated',
+                             #'5' = 'Never married',
+                             #'6' = 'A member of an unmarried couple')) %>%
+  #mutate(HLTHPLN1 = na_if(x = HLTHPLN1, y = 7)) %>%
+  #mutate(HLTHPLN1 = na_if(x = HLTHPLN1, y = 9)) %>%
+  #mutate(HLTHPLN1 = recode_factor(.x = HLTHPLN1,
+                              #'1' = 'Yes',
+                              #'2' = 'No')) %>%
+  #mutate(PERSDOC2 = na_if(x = PERSDOC2, y = 7)) %>%
+  #mutate(PERSDOC2 = na_if(x = PERSDOC2, y = 9)) %>%
+  #mutate(PERSDOC2 = recode_factor(.x = PERSDOC2,
+                             #'1' = 'Yes, only one',
+                             #'2' = 'More than one',
+                             #'3' = 'No')) %>%
+  #mutate(MENTHLTH = na_if(x = MENTHLTH, y = 77)) %>%
+  #mutate(MENTHLTH = na_if(x = MENTHLTH, y = 99)) %>%
+  #mutate(CIMEMLOS = na_if(x = CIMEMLOS, y = 7)) %>%
+  #mutate(CIMEMLOS = na_if(x = CIMEMLOS, y = 9)) %>%
+  #mutate(CIMEMLOS = recode_factor(.x = CIMEMLOS,
+                             # '1' = 'Yes',
+                             # '2' = 'No')) %>%
+  #rename(age = "_AGE_G") %>%
+  #mutate(age = recode_factor(.x = age,
+                             # '1' = '18 to 44',
+                              #'2' = '18 to 44',
+                              #'3' = '18 to 44',
+                              #'4' = '45 to 54',
+                              #'5' = '55 to 64',
+                             # '6' = '65 or older'))
+
+# make a subset of data set
+#dataSCD20 <- brfss20_SCD[ which(brfss20_SCD$age=='45 to 54' | brfss20_SCD$age=='55 to 64' | brfss20_SCD$age=='65 or older'), ]
+
+#or you can use the below code
+#dataSCD20_2 <- subset(brfss20_SCD, age == '45 to 54' | age == '55 to 64' | age == '65 or older',
+                    #select = c(SEXVAR, race, MARITAL, HLTHPLN1, PERSDOC2, MENTHLTH, CIMEMLOS, age))
+
+# check mental health values to see how to divide into a categorical variable
+#table(dataSCD20$MENTHLTH)
+
+# now, change MENTHLTH into a categorical variable
+#dataSCD20$mentcat = cut(dataSCD20$MENTHLTH, c(0, 13, 30, 88))
+
+# check to make sure responses as 88 add up to original
+#table(dataSCD20$mentcat)
+
+
+# clean mentcat and age variables
+#dataSCD20 <- dataSCD20 %>%
+  #mutate(mentcat2 = case_when(mentcat %in% c('(30,88]') ~ 0,
+                             #mentcat %in% c('(0,13]') ~ 1,
+                             #mentcat %in% c('(13,30]') ~ 2),
+         #mentcat2 = factor(mentcat2, 0:2, c('None', '1 to 13 days', '14+ days'))) %>%
+  #mutate(age = na_if(x = age, y = '18 to 44'))
+
 ```
 
