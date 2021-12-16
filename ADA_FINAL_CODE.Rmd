@@ -22,7 +22,7 @@ library(DiagrammeR) # for figure 1
 library(stargazer)
 library(gtsummary)# to create regression table
 library(finalfit) # for tbl regression formatting
-
+library(lmtest)
 ```
 
 
@@ -43,7 +43,6 @@ class(brfss20$SEXVAR)
 class(brfss20$"_IMPRACE")
 class(brfss20$MARITAL)
 class(brfss20$HLTHPLN1)
-class(brfss20$PERSDOC2)
 class(brfss20$MENTHLTH)
 class(brfss20$CIMEMLOS)
 class(brfss20$"_AGE_G")
@@ -53,30 +52,25 @@ table(brfss20$SEXVAR)
 table(brfss20$"_IMPRACE")
 table(brfss20$MARITAL)
 table(brfss20$HLTHPLN1)
-table(brfss20$PERSDOC2)
 table(brfss20$MENTHLTH)
 table(brfss20$CIMEMLOS)
 table(brfss20$"_AGE_G")
 
-# make smaller brfss data set
+# reduce brfss20 to include variables of interest and then check summary
 brfss20.small <- brfss20 %>%
-  select(SEXVAR, "_IMPRACE", MARITAL, HLTHPLN1, PERSDOC2, MENTHLTH, CIMEMLOS, "_AGE_G") %>%
+  select(SEXVAR, "_IMPRACE", MARITAL, HLTHPLN1, MENTHLTH, CIMEMLOS, "_AGE_G") %>%
   mutate(SEXVAR = as.factor(SEXVAR)) %>%
   mutate("_IMPRACE" = as.factor("_IMPRACE")) %>%
   mutate(MARITAL = as.factor(MARITAL)) %>%
   mutate(HLTHPLN1 = as.factor(HLTHPLN1)) %>%
-  mutate(PERSDOC2 = as.factor(PERSDOC2)) %>%
   mutate(CIMEMLOS = as.factor(CIMEMLOS)) %>%
   mutate("_AGE_G" = as.factor("_AGE_G"))
-
-# save new data set to computer using below code if necessary
-#write.csv(brfss20.small, "C:/Users/audre/OneDrive/Documents/FALL-2021/advanced_data_analysis/ADA_project/brfss20small.csv")
 
 # check summary of smaller data set
 summary(brfss20.small)
 
 # drop values that represent "Don't know/Not sure" or "Refused" (refer to codebook)
-# MARITAL, HLTHPLN1, PERSDOC2, MENTHLTH, CIMEMLOS have missing data
+# MARITAL, HLTHPLN1, MENTHLTH, CIMEMLOS have missing data
 # code age groups below 44 as NA and then drop
 # need to change variables to factor (except for MENTHLTH)
 # need to shift values one level down (i.e., 1 becomes 0, 2 becomes 1, etc.)
@@ -88,7 +82,7 @@ summary(brfss20.small)
 # clean data
 # for later: table(original var, new var, useNA=“always”)
 scd20 <- brfss20 %>%
-  select(SEXVAR, "_IMPRACE", MARITAL, HLTHPLN1, PERSDOC2, MENTHLTH, CIMEMLOS, "_AGE_G") %>%
+  select(SEXVAR, "_IMPRACE", MARITAL, HLTHPLN1, MENTHLTH, CIMEMLOS, "_AGE_G") %>%
   mutate(SEXVAR = case_when(SEXVAR %in% c(1) ~ 0,
                             SEXVAR %in% c(2) ~ 1),
          SEXVAR = factor(SEXVAR, 0:1, c("Male", "Female"))) %>%
@@ -110,12 +104,6 @@ scd20 <- brfss20 %>%
   mutate(HLTHPLN1 = case_when(HLTHPLN1 %in% c(1) ~ 0,
                               HLTHPLN1 %in% c(2) ~ 1),
          HLTHPLN1 = factor(HLTHPLN1, 0:1, c("Yes", "No"))) %>%
-  mutate(PERSDOC2 = na_if(x = PERSDOC2, y = 7)) %>%
-  mutate(PERSDOC2 = na_if(x = PERSDOC2, y = 9)) %>%
-  mutate(PERSDOC2 = case_when(PERSDOC2 %in% c(1) ~ 0,
-                              PERSDOC2 %in% c(2) ~ 1,
-                              PERSDOC2 %in% c(3) ~ 2),
-         PERSDOC2 = factor(PERSDOC2, 0:2, c("Yes, only one",  "More than one", "No"))) %>%
   mutate(MENTHLTH = na_if(x = MENTHLTH, y = 77)) %>%
   mutate(MENTHLTH = na_if(x = MENTHLTH, y = 99)) %>%
   mutate(CIMEMLOS = na_if(x = CIMEMLOS, y = 7)) %>%
@@ -130,7 +118,18 @@ scd20 <- brfss20 %>%
   mutate(age = case_when(age %in% c(4) ~ 0,
                          age %in% c(5) ~ 1,
                          age %in% c(6) ~ 2),
-         age = factor(age, 0:2, c("45 to 54", "55 to 64", "65 or older"))) %>%
+         age = factor(age, 0:2, c("45 to 54", "55 to 64", "65 or older")))
+
+# check variables for correct categorization (run code without na.omit)
+table(brfss20$SEXVAR, scd20$SEXVAR)
+table(brfss20$"_IMPRACE", scd20$race)
+table(brfss20$MARITAL, scd20$MARITAL)
+table(brfss20$HLTHPLN1, scd20$HLTHPLN1)
+table(brfss20$"_AGE_G", scd20$age)
+table(brfss20$CIMEMLOS, scd20$CIMEMLOS)
+
+# drop NAs
+scd20 <- scd20 %>%
   na.omit()
 
 # code to export smaller dataset
@@ -138,10 +137,6 @@ scd20 <- brfss20 %>%
 
 # check new data
 summary(scd20)
-
-# check variables for correct categorization (run code without na.omit)
-#table(brfss20$"_AGE_G", scd20$age)
-#table(brfss20$CIMEMLOS, scd20$CIMEMLOS)
 ```
 
 ## Now change MENTHLTH into a categorical variable
@@ -177,12 +172,11 @@ label(scd20$SEXVAR)<-"Sex"
 label(scd20$race)<-"Race"
 label(scd20$MARITAL)<-"Marital status"
 label(scd20$HLTHPLN1)<-"Health insurance status"
-label(scd20$PERSDOC2)<-"Personal doctor status"
 label(scd20$CIMEMLOS)<-"SCD status"
 label(scd20$mentcat2) <- "Mental health status"
 
 # make a table 1
-table1(~age + SEXVAR + race + MARITAL + HLTHPLN1 + PERSDOC2 + CIMEMLOS|mentcat2, overall="Total", footnote='SD = standard deviation', scd20)
+table1(~age + SEXVAR + race + MARITAL + HLTHPLN1 + CIMEMLOS|mentcat2, overall="Total", footnote='SD = standard deviation', scd20)
 ```
 
 ## Flow chart
@@ -200,57 +194,18 @@ grViz("digraph flowchart {
 }
       #This set of code provides the text in each rectangle box.
       [1]: 'Records received from BRFSS data set n = 401,958'
-      [2]: 'Excluding 336,829 individuals diagnosed not 45 or older, \\n or with missing data on variables used in analysis n = 65,129'
+      [2]: 'Excluding 336,609 individuals diagnosed not 45 or older, \\n or with missing data on variables used in analysis n = 65,349'
       ")
 ```
 
 ## Logistic models and analyses
 
-### BASIC MODEL (ONE OUTCOME, ONE PREDICTOR)
-```{r}
-# check levels of CIMEMLOS
-levels(scd20$CIMEMLOS)
+## Model 1
 
-# logistic model with mentcat2 as a predictor
-mentLogit <- glm(CIMEMLOS ~ mentcat2, data = scd20, family = "binomial")
-summary(mentLogit)
-
-ORment <- exp(cbind(OR = coef(mentLogit), confint(mentLogit)))
-ORment
-
-# calculate ORs and 95% CIs
-odds.n.ends(mentLogit)
-```
-
-### Test for assumptions of binary logistic regression
-
-#### Linearity
-
-It is not necessary to test for linearity since all variables in the analysis are categorical.
-
-#### Influences
-
-
-
-#### Multicollinearity
-
-It is not necessary to test for multicollinearity since there are only two variables in the model.
-
-#### Model fit of basic model
-```{r}
-#Various pseudo R squares, log likelihood, deviance, AIC, BIC
-blr_model_fit_stats(mentLogit)
-
-#Hosmer lemeshow goodness of fit test: a significant p value indicates a bad fit
-blr_test_hosmer_lemeshow(mentLogit)
-```
-
-### Model 1
-
-### Multivariate model with CIMEMLOS as the dependent variable and mental health status, sex, race, health plan status, personal doctor status, marital status, and age as independent variables
+## Multivariate model with CIMEMLOS as the dependent variable and mental health status, sex, race, health plan status, marital status, and age as independent variables
 ```{r}
 # logistic model
-mentplusLogit <- glm(CIMEMLOS ~ mentcat2 + SEXVAR + race + HLTHPLN1 + PERSDOC2 + MARITAL + age, data = scd20, family = "binomial")
+mentplusLogit <- glm(CIMEMLOS ~ mentcat2 + SEXVAR + race + HLTHPLN1 + MARITAL + age, data = scd20, family = "binomial")
 summary(mentplusLogit)
 
 #calculate and print ORs and 95% CIs  
@@ -263,13 +218,13 @@ odds.n.ends(mentplusLogit)
 tbl_regression(mentplusLogit, exponentiate = TRUE, include = mentcat2, label = list(mentcat2 ~ "Mental health status"))
 ```
 
-### Test for assumptions
+## Test for assumptions
 
-#### Linearity
+### Linearity
 
 Linearity is not applicable since there are no continuous variables in my analysis.
 
-#### Influence
+### Influence
 ```{r}
 #Cook's D plot
 plot(mentplusLogit, which=4, id.n=5, col="red") 
@@ -284,12 +239,12 @@ obs_no <- as.data.frame(cooks.distance(mentplusLogit)) %>%
 ```
 
 
-#### Multicollinearity
+### Multicollinearity
 ```{r}
 vif(mentplusLogit)
 ```
 
-#### Model fit for model 1
+### Model fit for model 1
 ```{r}
 #Various pseudo R squares, log likelihood, deviance, AIC, BIC
 blr_model_fit_stats(mentplusLogit)
@@ -298,58 +253,132 @@ blr_model_fit_stats(mentplusLogit)
 blr_test_hosmer_lemeshow(mentplusLogit)
 ```
 
-### Model 2
+## Model 2 (testing age as an effect modifier)
 
-### Multivariate model with CIMEMLOS as the dependent variable and mental health status, sex, race, health plan status, personal doctor status, marital status, and age PLUS interaction terms for sex and age as independent variables
+## Multivariate model with CIMEMLOS as the dependent variable and mental health status, sex, race, health plan status, marital status, and age PLUS interaction between mental health status and age as independent variables
 ```{r}
 # logistic model
-mentEMLogit <- glm(CIMEMLOS ~ mentcat2 + race + HLTHPLN1 + PERSDOC2 + MARITAL + mentcat2*age + mentcat2*SEXVAR, data = scd20, family = "binomial")
-summary(mentEMLogit)
+mentageLogit <- glm(CIMEMLOS ~ mentcat2 + SEXVAR + race + HLTHPLN1 + MARITAL + age + mentcat2*age, data = scd20, family = "binomial")
+summary(mentageLogit)
 
 #calculate and print ORs and 95% CIs  
-ORmentEM<-exp(cbind(OR = coef(mentEMLogit), confint(mentEMLogit))) #calculate ORs and 95% CIs
-ORmentEM #print ORs and 95% CIs
+ORmentage<-exp(cbind(OR = coef(mentageLogit), confint(mentageLogit))) #calculate ORs and 95% CIs
+ORmentage #print ORs and 95% CIs
 
-odds.n.ends(mentEMLogit)
-
-# make a formatted table for odds ratios
-tbl_regression(mentEMLogit, exponentiate = TRUE, label = list(mentcat2 ~ "Mental health status"))
+odds.n.ends(mentageLogit)
 ```
 
-### Test for assumptions
+## Test for assumptions
 
-#### Linearity
+### Linearity
 
 Linearity is not applicable since there are no continuous variables in my analysis.
 
-#### Influence
+### Influence
 ```{r}
 #Cook's D plot
-plot(mentEMLogit, which=4, id.n=5, col="red") 
+plot(mentageLogit, which=4, id.n=5, col="red") 
 
 #Cook's D cutoff=0.0015 Or you can define use the rules described in the lecture
 cutoff <- 0.0015 
 
 #identify observations with a Cook's Distance greater than cutoff
-obs_no_2 <- as.data.frame(cooks.distance(mentEMLogit)) %>%
-  mutate(obs_no_2=row_number()) %>%
-  filter(`cooks.distance(mentEMLogit)` > cutoff)
+obs_no_2 <- as.data.frame(cooks.distance(mentageLogit)) %>%
+  mutate(obs_no=row_number()) %>%
+  filter(`cooks.distance(mentageLogit)` > cutoff)
 ```
 
-
-#### Multicollinearity
+### Multicollinearity
 ```{r}
-vif(mentEMLogit)
+vif(mentageLogit)
 ```
 
-#### Model fit for model 2
+### Model fit for model 2
 ```{r}
 #Various pseudo R squares, log likelihood, deviance, AIC, BIC
-blr_model_fit_stats(mentEMLogit)
+blr_model_fit_stats(mentageLogit)
 
 #Hosmer lemeshow goodness of fit test: a significant p value indicates a bad fit
-blr_test_hosmer_lemeshow(mentEMLogit)
+blr_test_hosmer_lemeshow(mentageLogit)
 ```
+
+## Model 3 (testing sex as an effect modifier)
+```{r}
+# logistic model
+mentsexLogit <- glm(CIMEMLOS ~ mentcat2 + SEXVAR + race + HLTHPLN1 + MARITAL + age + mentcat2*SEXVAR, data = scd20, family = "binomial")
+summary(mentsexLogit)
+
+#calculate and print ORs and 95% CIs  
+ORmentage<-exp(cbind(OR = coef(mentageLogit), confint(mentsexLogit))) #calculate ORs and 95% CIs
+ORmentage #print ORs and 95% CIs
+
+odds.n.ends(mentsexLogit)
+```
+
+## Test for assumptions
+
+### Linearity
+
+Linearity is not applicable since there are no continuous variables in my analysis.
+
+### Influence
+```{r}
+#Cook's D plot
+plot(mentsexLogit, which=4, id.n=5, col="red") 
+
+#Cook's D cutoff=0.0015 Or you can define use the rules described in the lecture
+cutoff <- 0.0015 
+
+#identify observations with a Cook's Distance greater than cutoff
+obs_no_3 <- as.data.frame(cooks.distance(mentsexLogit)) %>%
+  mutate(obs_no_2=row_number()) %>%
+  filter(`cooks.distance(mentsexLogit)` > cutoff)
+```
+
+### Multicollinearity
+```{r}
+vif(mentsexLogit)
+```
+
+### Model fit for model 3
+```{r}
+#Various pseudo R squares, log likelihood, deviance, AIC, BIC
+blr_model_fit_stats(mentsexLogit)
+
+#Hosmer lemeshow goodness of fit test: a significant p value indicates a bad fit
+blr_test_hosmer_lemeshow(mentsexLogit)
+```
+
+## Compare models using likelihood ratio
+```{r}
+# lr between model 1 and model 2
+lrtest(mentplusLogit, mentageLogit)
+
+# lr between model 1 and model 3
+lrtest(mentplusLogit, mentsexLogit)
+```
+
+## Test effect measure modification for age
+```{r}
+# 45 to 54
+youngerLogit <- glm(CIMEMLOS ~ mentcat2 + SEXVAR + race + HLTHPLN1 + MARITAL, data = scd20[which(scd20$age == "45 to 54"),], family = "binomial")
+summary(youngerLogit)
+
+odds.n.ends(youngerLogit)
+
+# 55 to 64
+middleLogit <- glm(CIMEMLOS ~ mentcat2 + SEXVAR + race + HLTHPLN1 + MARITAL, data = scd20[which(scd20$age == "55 to 64"),], family = "binomial")
+summary(middleLogit)
+
+odds.n.ends(middleLogit)
+
+# 65 or older
+olderLogit <- glm(CIMEMLOS ~ mentcat2 + SEXVAR + race + HLTHPLN1 + MARITAL, data = scd20[which(scd20$age == "65 or older"),], family = "binomial")
+summary(olderLogit)
+
+odds.n.ends(olderLogit)
+```
+
 
 ### Model 3 (not in abstract or presentation)
 
@@ -369,6 +398,31 @@ blr_test_hosmer_lemeshow(mentEMLogit)
 #summary(balanceLogit)
 
 #odds.n.ends(balanceLogit, predProbPlot=TRUE)
+```
+
+### BASIC MODEL (ONE OUTCOME, ONE PREDICTOR) (not in abstract or presentation)
+```{r}
+# check levels of CIMEMLOS
+#levels(scd20$CIMEMLOS)
+
+# logistic model with mentcat2 as a predictor
+#mentLogit <- glm(CIMEMLOS ~ mentcat2, data = scd20, family = "binomial")
+#summary(mentLogit)
+
+#ORment <- exp(cbind(OR = coef(mentLogit), confint(mentLogit)))
+#ORment
+
+# calculate ORs and 95% CIs
+#odds.n.ends(mentLogit)
+```
+
+#### Model fit of basic model
+```{r}
+#Various pseudo R squares, log likelihood, deviance, AIC, BIC
+#blr_model_fit_stats(mentLogit)
+
+#Hosmer lemeshow goodness of fit test: a significant p value indicates a bad fit
+#blr_test_hosmer_lemeshow(mentLogit)
 ```
 
 ```{r}
